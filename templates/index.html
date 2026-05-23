@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineMatch — AI Movie Recommender</title>
+  <style>
+    /* ── Reset & Base ───────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d14;
+      --surface:   #14141f;
+      --card:      #1a1a28;
+      --border:    #2a2a40;
+      --gold:      #f0c040;
+      --gold-dim:  #b08820;
+      --purple:    #9f7aea;
+      --text:      #e8e4d8;
+      --muted:     #6b6880;
+      --danger:    #e05252;
+      --success:   #4ade80;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: -0.5px;
+    }
+
+    header p { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+
+    .film-icon { font-size: 2rem; }
+
+    /* ── Layout ──────────────────────────────────── */
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 72px);
+    }
+
+    /* ── Sidebar (Filters) ───────────────────────── */
+    aside {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .sidebar-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    /* Genre checkboxes */
+    .genre-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .genre-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 0.82rem;
+    }
+
+    .genre-check:hover { border-color: var(--gold); color: var(--gold); }
+    .genre-check.checked { background: #1e1a08; border-color: var(--gold); color: var(--gold); }
+    .genre-check input { display: none; }
+
+    /* Slider group */
+    .slider-group { margin-bottom: 1.5rem; }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .slider-label span { color: var(--gold); font-weight: 600; font-size: 0.9rem; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      margin-bottom: 4px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--gold);
+      cursor: pointer;
+    }
+
+    .range-minmax {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    /* Recommend button */
+    .btn-recommend {
+      width: 100%;
+      padding: 12px;
+      background: var(--gold);
+      color: #0d0d14;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      transition: all 0.2s;
+      margin-top: 0.5rem;
+    }
+
+    .btn-recommend:hover { background: #f5d060; transform: translateY(-1px); }
+    .btn-recommend:active { transform: translateY(0); }
+    .btn-recommend:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-reset {
+      width: 100%;
+      padding: 8px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.15s;
+    }
+
+    .btn-reset:hover { color: var(--danger); border-color: var(--danger); }
+
+    /* ── Main Results Area ───────────────────────── */
+    main {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .results-header h2 { font-size: 1.1rem; font-weight: 600; }
+    .results-count { font-size: 0.8rem; color: var(--muted); }
+
+    /* Movie cards grid */
+    .movies-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .movie-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+      position: relative;
+    }
+
+    .movie-card:hover { transform: translateY(-3px); border-color: var(--gold-dim); }
+
+    /* Poster placeholder with gradient */
+    .poster {
+      height: 140px;
+      background: linear-gradient(135deg, #1a1440 0%, #0d1a2a 50%, #1a0d2a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .poster::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 50%, var(--card) 100%);
+    }
+
+    /* Match badge */
+    .match-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--gold);
+      color: #0d0d14;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      z-index: 2;
+    }
+
+    .match-badge.top { background: var(--success); }
+
+    /* Card body */
+    .card-body { padding: 14px; }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .card-year { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
+
+    /* Genre tags */
+    .genre-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+
+    .genre-tag {
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #2a2040;
+      color: var(--purple);
+      border: 1px solid #3a3060;
+      font-weight: 500;
+    }
+
+    .card-plot {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    /* Match bar */
+    .match-bar-wrap { margin-top: 8px; }
+
+    .match-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .match-bar-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .match-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+      border-radius: 2px;
+      width: 0;
+      transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* Why-selected pill */
+    .why-selected {
+      margin-top: 10px;
+      font-size: 0.65rem;
+      color: #4a8060;
+      background: #0a1a10;
+      border: 1px solid #1a4028;
+      border-radius: 6px;
+      padding: 5px 8px;
+      line-height: 1.4;
+    }
+
+    .why-selected strong { color: var(--success); }
+
+    /* ── State screens ────────────────────────────── */
+    .state-screen {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--muted);
+    }
+
+    .state-screen .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .state-screen p { font-size: 0.9rem; line-height: 1.6; max-width: 300px; margin: 0 auto; }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Runtime badge on poster */
+    .runtime-badge {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      color: var(--text);
+      font-size: 0.65rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      z-index: 2;
+    }
+
+    .rating-badge {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: var(--gold);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      z-index: 2;
+    }
+
+    /* ── Responsive ──────────────────────────────── */
+    @media (max-width: 768px) {
+      .container { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid var(--border); }
+      .movies-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="film-icon">🎬</div>
+  <div>
+    <h1>CineMatch</h1>
+    <p>AI-Powered Movie Recommendation Engine</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── SIDEBAR: Filter Panel ── -->
+  <aside>
+    <p class="sidebar-title">🎭 Genres</p>
+    <div class="genre-grid" id="genreGrid">
+      <!-- Populated by JS -->
+    </div>
+
+    <div style="height:1px; background:var(--border); margin-bottom:1.2rem;"></div>
+
+    <p class="sidebar-title">📅 Release Era</p>
+    <div class="slider-group">
+      <div class="slider-label">
+        Year range: <span id="yearLabel">1990 – 2024</span>
+      </div>
+      <input type="range" id="yearMin" min="1970" max="2024" value="1990" step="1"
+             oninput="updateLabels()">
+      <input type="range" id="yearMax" min="1970" max="2024" value="2024" step="1"
+             oninput="updateLabels()">
+      <div class="range-minmax"><span>1970</span><span>2024</span></div>
+    </div>
+
+    <div style="height:1px; background:var(--border); margin-bottom:1.2rem;"></div>
+
+    <p class="sidebar-title">⏱️ Max Runtime</p>
+    <div class="slider-group">
+      <div class="slider-label">
+        Under <span id="runtimeLabel">180 min</span>
+      </div>
+      <input type="range" id="maxRuntime" min="60" max="240" value="180" step="5"
+             oninput="updateLabels()">
+      <div class="range-minmax"><span>60 min</span><span>240 min</span></div>
+    </div>
+
+    <div style="height:1px; background:var(--border); margin-bottom:1.2rem;"></div>
+
+    <button class="btn-recommend" id="recBtn" onclick="getRecommendations()">
+      🔍 Find My Movies
+    </button>
+    <button class="btn-reset" onclick="resetAll()">↺ Reset Filters</button>
+  </aside>
+
+  <!-- ── MAIN: Results ── -->
+  <main>
+    <div class="results-header">
+      <h2 id="resultsTitle">Your Recommendations</h2>
+      <span class="results-count" id="resultsCount"></span>
+    </div>
+
+    <div id="resultsArea">
+      <div class="state-screen">
+        <div class="icon">🍿</div>
+        <p>Select genres, pick an era, set a runtime limit — then hit <strong>Find My Movies</strong> to get personalized picks!</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ── All available genres ──────────────────────────────────
+  const ALL_GENRES = [
+    "Action","Adventure","Animation","Biography","Comedy",
+    "Crime","Drama","Fantasy","History","Horror",
+    "Music","Mystery","Romance","Sci-Fi","Sport",
+    "Thriller","War"
+  ];
+
+  const POSTER_EMOJIS = {
+    "Action":"⚔️","Adventure":"🗺️","Animation":"✨","Biography":"📖",
+    "Comedy":"😂","Crime":"🔫","Drama":"🎭","Fantasy":"🧙",
+    "History":"🏛️","Horror":"👻","Music":"🎵","Mystery":"🕵️",
+    "Romance":"💕","Sci-Fi":"🚀","Sport":"🏆","Thriller":"🔪","War":"🪖"
+  };
+
+  // genre checkboxes
+  const genreGrid = document.getElementById("genreGrid");
+  ALL_GENRES.forEach(g => {
+    const div = document.createElement("div");
+    div.className = "genre-check";
+    div.dataset.genre = g;
+    div.innerHTML = `<input type="checkbox" value="${g}"> ${g}`;
+    div.addEventListener("click", () => {
+      div.classList.toggle("checked");
+      div.querySelector("input").checked = div.classList.contains("checked");
+    });
+    genreGrid.appendChild(div);
+  });
+
+  // Slider labels
+  function updateLabels() {
+    const min = parseInt(document.getElementById("yearMin").value);
+    const max = parseInt(document.getElementById("yearMax").value);
+    // Prevent crossing
+    if (min > max) { document.getElementById("yearMin").value = max; }
+    document.getElementById("yearLabel").textContent =
+      `${Math.min(min,max)} – ${max}`;
+    document.getElementById("runtimeLabel").textContent =
+      `${document.getElementById("maxRuntime").value} min`;
+  }
+
+  // Reset 
+  function resetAll() {
+    document.querySelectorAll(".genre-check").forEach(d => {
+      d.classList.remove("checked");
+      d.querySelector("input").checked = false;
+    });
+    document.getElementById("yearMin").value = 1990;
+    document.getElementById("yearMax").value = 2024;
+    document.getElementById("maxRuntime").value = 180;
+    updateLabels();
+    document.getElementById("resultsArea").innerHTML = `
+      <div class="state-screen">
+        <div class="icon">🍿</div>
+        <p>Filters reset! Select your preferences and hit <strong>Find My Movies</strong>.</p>
+      </div>`;
+    document.getElementById("resultsCount").textContent = "";
+  }
+
+  // Fetch recommendations
+  async function getRecommendations() {
+    const selected = [...document.querySelectorAll(".genre-check.checked")]
+                     .map(d => d.dataset.genre);
+
+    const yearMin    = parseInt(document.getElementById("yearMin").value);
+    const yearMax    = parseInt(document.getElementById("yearMax").value);
+    const maxRuntime = parseInt(document.getElementById("maxRuntime").value);
+
+    // Show loading
+    document.getElementById("recBtn").disabled = true;
+    document.getElementById("recBtn").textContent = "Searching…";
+    document.getElementById("resultsArea").innerHTML = `
+      <div class="state-screen">
+        <div class="spinner"></div>
+        <p>Filtering the catalogue and scoring matches…</p>
+      </div>`;
+    document.getElementById("resultsCount").textContent = "";
+
+    try {
+      const res = await fetch("/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ genres: selected, year_min: yearMin,
+                               year_max: Math.max(yearMin, yearMax),
+                               max_runtime: maxRuntime })
+      });
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      document.getElementById("resultsArea").innerHTML = `
+        <div class="state-screen">
+          <div class="icon">⚠️</div>
+          <p>Could not connect to the server. Make sure Flask is running!</p>
+        </div>`;
+    }
+
+    document.getElementById("recBtn").disabled = false;
+    document.getElementById("recBtn").textContent = "🔍 Find My Movies";
+  }
+
+  // Render movie cards 
+  function renderResults(data) {
+    const area = document.getElementById("resultsArea");
+
+    if (!data.movies || data.movies.length === 0) {
+      area.innerHTML = `
+        <div class="state-screen">
+          <div class="icon">😔</div>
+          <p>${data.message || "No movies matched. Try widening your filters!"}</p>
+        </div>`;
+      document.getElementById("resultsCount").textContent = "";
+      return;
+    }
+
+    document.getElementById("resultsCount").textContent =
+      `Showing ${data.movies.length} of ${data.total_found} matched`;
+
+    const grid = document.createElement("div");
+    grid.className = "movies-grid";
+
+    data.movies.forEach((m, idx) => {
+      const primaryGenre = m.genre_list[0] || "Drama";
+      const emoji = POSTER_EMOJIS[primaryGenre] || "🎬";
+      const isTop = m.match_score >= 90;
+
+      const card = document.createElement("div");
+      card.className = "movie-card";
+      card.innerHTML = `
+        <div class="poster">
+          <span style="position:relative;z-index:1;font-size:3.5rem">${emoji}</span>
+          <div class="match-badge ${isTop ? 'top' : ''}">${m.match_score}% Match</div>
+          <div class="runtime-badge">⏱ ${m.runtime_minutes} min</div>
+          <div class="rating-badge">★ ${m.rating}</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">${m.title}</div>
+          <div class="card-year">${m.release_year}</div>
+          <div class="genre-tags">
+            ${m.genre_list.map(g => `<span class="genre-tag">${g}</span>`).join("")}
+          </div>
+          <p class="card-plot">${m.plot_summary}</p>
+          <div class="match-bar-wrap">
+            <div class="match-bar-label">
+              <span>Match score</span><span>${m.match_score}%</span>
+            </div>
+            <div class="match-bar-track">
+              <div class="match-bar-fill" data-fill="${m.match_score}"></div>
+            </div>
+          </div>
+          <div class="why-selected">
+            <strong>✓ Why recommended:</strong><br>${m.why_selected}
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    area.innerHTML = "";
+    area.appendChild(grid);
+
+    // Animate match bars after paint
+    requestAnimationFrame(() => {
+      document.querySelectorAll(".match-bar-fill").forEach(bar => {
+        bar.style.width = bar.dataset.fill + "%";
+      });
+    });
+  }
+
+  // Initialize labels
+  updateLabels();
+</script>
+
+</body>
+</html>

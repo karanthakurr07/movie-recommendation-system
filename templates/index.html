@@ -395,13 +395,13 @@
     <p class="sidebar-title">📅 Release Era</p>
     <div class="slider-group">
       <div class="slider-label">
-        Year range: <span id="yearLabel">1990 – 2024</span>
+        Year range: <span id="yearLabel">1990 – 2026</span>
       </div>
-      <input type="range" id="yearMin" min="1970" max="2024" value="1990" step="1"
+      <input type="range" id="yearMin" min="1970" max="2026" value="1990" step="1"
              oninput="updateLabels()">
-      <input type="range" id="yearMax" min="1970" max="2024" value="2024" step="1"
+      <input type="range" id="yearMax" min="1970" max="2026" value="2026" step="1"
              oninput="updateLabels()">
-      <div class="range-minmax"><span>1970</span><span>2024</span></div>
+      <div class="range-minmax"><span>1970</span><span>2026</span></div>
     </div>
 
     <div style="height:1px; background:var(--border); margin-bottom:1.2rem;"></div>
@@ -489,7 +489,7 @@
       d.querySelector("input").checked = false;
     });
     document.getElementById("yearMin").value = 1990;
-    document.getElementById("yearMax").value = 2024;
+    document.getElementById("yearMax").value = 2026;
     document.getElementById("maxRuntime").value = 180;
     updateLabels();
     document.getElementById("resultsArea").innerHTML = `
